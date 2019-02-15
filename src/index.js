@@ -1,44 +1,27 @@
-const express = require('express');
-const {graphiqlExpress} = require('graphql-server-express');
-const schema = require('./schema/schema');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const {createServer} = require('http');
-const {SubscriptionServer} = require('subscriptions-transport-ws');
-const { execute, subscribe } = require('graphql');
-const graphqlHTTP = require('express-graphql');
+import express from "express";
+import { createServer } from "http";
+import { ApolloServer } from "apollo-server-express";
+import schema from "./schema/schema";
 
-mongoose.connect('mongodb+srv://root:root@cluster0-awigs.mongodb.net/test?retryWrites=true');
-mongoose.connection.once('open', () => {
-    console.log('Connected to database.');
-})
+const mongoose = require("mongoose");
+mongoose.connect(
+  "mongodb+srv://root:root@cluster0-awigs.mongodb.net/test?retryWrites=true",
+  { useNewUrlParser: true }
+);
+mongoose.connection.once("open", () => {
+  console.log("Connected to database.");
+});
 
-const PORT = 4000;
-const server = express();
+const PORT = 3030
+const server = new ApolloServer({
+  schema
+});
 
-server.use(cors());
+const app = express();
+server.applyMiddleware({ app, path: "/graphql" });
+const httpServer = createServer(app);
+server.installSubscriptionHandlers(httpServer);
 
-server.use('/graphql', graphqlHTTP({
-    schema: schema,
-    graphiql: true
-  }));
-
-server.use('/graphiql', graphiqlExpress({
-  endpointURL: '/graphql',
-  subscriptionsEndpoint: `ws://localhost:${PORT}/subscriptions`
-}));
-
-// Wrap the Express server
-const ws = createServer(server);
-ws.listen(PORT, () => {
-  console.log(`Apollo Server is now running on http://localhost:${PORT}`);
-  // Set up the WebSocket for handling GraphQL subscriptions
-  new SubscriptionServer({
-    execute,
-    subscribe,
-    schema
-  }, {
-    server: ws,
-    path: '/subscriptions',
-  });
+httpServer.listen({ port : PORT }, () => {
+  console.log("Apollo Server on http://localhost:3030/graphql");
 });
