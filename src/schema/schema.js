@@ -11,17 +11,16 @@ import { PubSub } from "apollo-server";
 import { GraphQLScalarType } from "graphql";
 
 const pubsub = new PubSub();
-const { makeExecutableSchema } = require("graphql-tools");
-const User = require("../models/user");
+const Player = require("../models/player");
 const CurrentGame = require("../models/currentGame");
 
 /* Subscription Constants */
-const USER_CREATED= "USER_CREATED";
+const PLAYER_CREATED= "PLAYER_CREATED";
 const CURRENT_GAME_CREATED= "CURRENT_GAME_CREATED";
 /*                        */
 
-var UserType = new GraphQLObjectType({
-  name: "User",
+var PlayerType = new GraphQLObjectType({
+  name: "Player",
   fields: () => ({
     id: { type: GraphQLID },
     name: { type: GraphQLString }
@@ -34,10 +33,10 @@ var CurrentGameType = new GraphQLObjectType({
     id: { type: GraphQLID },
     createdAt: { type: DateTime },
     timePlayed: { type: GraphQLInt },
-    user: {
-      type: UserType,
+    currentTurn: {
+      type: PlayerType,
       resolve(parent, args) {
-        return User.findById(parent.user);
+        return Player.findById(parent.currentTurn);
       }
     }
   })
@@ -48,26 +47,24 @@ var CurrentGameType = new GraphQLObjectType({
 const RootQuery = new GraphQLObjectType({
   name: "RootQueryType",
   fields: {
-    getUserById: {
-      type: UserType,
+    getPlayerById: {
+      type: PlayerType,
       args: { id: { type: GraphQLID } },
       resolve(parent, args) {
-        return User.findById(args.id);
+        return Player.findById(args.id);
       }
     },
-    getAllUsers: {
-      type: GraphQLList(UserType),
+    getAllPlayers: {
+      type: GraphQLList(PlayerType),
       args: {},
       resolve(parent, args) {
-        return User.find({});
+        return Player.find({});
       }
     },
     getAllCurrentGames: {
       type: GraphQLList(CurrentGameType),
       args: {},
       resolve(parent, args) {
-        CurrentGame.deleteMany().exec();
-        User.deleteMany().exec();
         return CurrentGame.find({});
       }
     },
@@ -78,11 +75,11 @@ const RootQuery = new GraphQLObjectType({
         return CurrentGame.findById(args.id);
       }
     },
-    getAllCurrentGameByUser: {
+    getAllCurrentGameByPlayer: {
       type: GraphQLList(CurrentGameType),
-      args: { idUser: { type: GraphQLID } },
+      args: { idPlayer: { type: GraphQLID } },
       resolve(parent, args) {
-        return CurrentGame.findBy(args.idUser);
+        return CurrentGame.find({currentTurn : args.idPlayer});
       }
     }
   }
@@ -91,46 +88,59 @@ const RootQuery = new GraphQLObjectType({
 const Mutation = new GraphQLObjectType({
   name: "Mutation",
   fields: {
-    createUser: {
-      type: UserType,
+    createPlayer: {
+      type: PlayerType,
       args: {
         name: { type: GraphQLString }
       },
       resolve(parent, args) {
-        let user = new User({
+        let player = new Player({
           name: args.name
         });
-        pubsub.publish(USER_CREATED, { userCreated: user });
-        return user.save();
+        const playerSaved = player.save();
+        pubsub.publish(PLAYER_CREATED, { playerCreated: player });
+        return playerSaved;
       }
     },
     createCurrentGame: {
       type: CurrentGameType,
       args: {
-        timePlayed: { type: GraphQLInt },
-        userId: { type: GraphQLString}
+        playerId: { type: GraphQLString}
       },
       resolve(parent, args) {
         let currentGame = new CurrentGame({
           createdAt: new Date(),
-          timePlayed: args.timePlayed,
-          user: args.userId
+          timePlayed: 0,
+          currentTurn: args.playerId
         });
-        pubsub.publish(CURRENT_GAME_CREATED, {currentGameCreated: CurrentGame.find({})});
-        return currentGame.save();
+        return currentGame.save(function(err, doc, numbersAffected) {
+          if(err){
+            console.log('There was an error on save CurrentGame', e.message);
+          }else{
+            pubsub.publish(CURRENT_GAME_CREATED, {currentGames: CurrentGame.find({currentTurn : args.playerId})});
+          }
+        });
       }
     }
+    // deleteAllCurrentGames:{
+    //   type: CurrentGameType,
+    //   args: {
+    //   },
+    //   resolve(parent, args) {
+    //     return CurrentGame.deleteMany().exec();
+    //   }
+    // }
   }
 });
 
 const Subscription = new GraphQLObjectType({
   name: "Subscription",
   fields: {
-    userCreated: {
-      type: UserType,
-      subscribe: () => pubsub.asyncIterator(USER_CREATED)
+    playerCreated: {
+      type: PlayerType,
+      subscribe: () => pubsub.asyncIterator(PLAYER_CREATED)
     },
-    currentGameCreated:{
+    currentGames:{
       type: GraphQLList(CurrentGameType),
       subscribe: () => pubsub.asyncIterator(CURRENT_GAME_CREATED)
     }
