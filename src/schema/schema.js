@@ -113,23 +113,24 @@ const Mutation = new GraphQLObjectType({
           timePlayed: 0,
           currentTurn: args.playerId
         });
-        return currentGame.save(function(err, doc, numbersAffected) {
+        currentGame.save(function(err, doc, numbersAffected) {
           if(err){
             console.log('There was an error on save CurrentGame', e.message);
           }else{
             pubsub.publish(CURRENT_GAME_CREATED, {currentGames: CurrentGame.find({currentTurn : args.playerId})});
           }
         });
+        return currentGame;
+      }
+    },
+    deleteAllCurrentGames:{
+      type: CurrentGameType,
+      args: {
+      },
+      resolve(parent, args) {
+        return CurrentGame.deleteMany().exec();
       }
     }
-    // deleteAllCurrentGames:{
-    //   type: CurrentGameType,
-    //   args: {
-    //   },
-    //   resolve(parent, args) {
-    //     return CurrentGame.deleteMany().exec();
-    //   }
-    // }
   }
 });
 

@@ -5,8 +5,9 @@
   "private": true,
   "scripts": {
     "build": "webpack",
-    "start": "npm run build && node dist/main.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "npm-run-all --parallel watch:server watch:build",
+    "watch:build": "webpack --watch",
+    "watch:server": "nodemon \"./dist/main.js\" --watch \"./dist\""
   },
   "author": "",
   "license": "ISC",
@@ -15,15 +16,14 @@
     "apollo-server-express": "^2.4.0",
     "body-parser": "^1.18.3",
     "express": "^4.16.4",
-    "express-graphql": "^0.7.1",
     "graphql": "^14.1.1",
-    "graphql-server-express": "^1.4.0",
     "graphql-subscriptions": "^1.0.0",
     "http": "0.0.0",
-    "lodash": "^4.17.11",
     "mongoose": "^5.4.11",
+    "nodemon": "^1.18.10",
+    "npm-run-all": "^4.1.5",
     "subscriptions-transport-ws": "^0.9.15",
-    "webpack": "^4.29.3",
+    "webpack": "^4.29.5",
     "webpack-cli": "^3.2.3"
   }
 }
